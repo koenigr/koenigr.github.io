@@ -1,1 +1,13 @@
+title: "From Code to Hardware"
+description: "Practical notes on embedded software, bare-metal development, debugging, and hardware-software integration."
 
+url: "https://koenigr.github.io"
+baseurl: ""
+
+theme: minima
+
+markdown: kramdown
+permalink: /:categories/:year/:month/:day/:title/
+
+header_pages:
+  - about.md
