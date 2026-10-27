@@ -5,13 +5,6 @@ date: 2026-10-28
 categories: [embedded, debugging]
 ---
 
----
-layout: post
-title: "Debugging a Persistent LED Blinking Bug on the STM32F407"
-date: 2026-10-28
-categories: [embedded, debugging]
----
-
 # Debugging a Persistent LED Blinking Bug on the STM32F407
 
 ## 1. Introduction
