@@ -1,107 +1,58 @@
 ---
 layout: post
-title: "Debugging a Persistent LED Blinking Bug on the STM32F407"
+title: "Debugging an STM32: My First Hands-On Experience with GDB and SWO"
 date: 2026-10-28
 categories: [embedded, debugging]
 ---
 
-# Debugging a Persistent LED Blinking Bug on the STM32F407
+# Debugging an STM32: My First Hands-On Experience with GDB and SWO
 
-## Introduction
+## From Symptoms to Root Cause
 
-As part of my bare-metal STM32F407 access control project, I implemented a lockout mechanism to prevent repeated incorrect PIN attempts. After three failed attempts, the system enters a lockout state for 30 seconds, during which the red LED blinks.
+While developing a bare-metal access control system for the STM32F407G-DISC1, I encountered a bug that seemed straightforward at first.
 
-During hardware testing, I discovered a bug: the red LED continued blinking even after the lockout period had expired.
+After three incorrect PIN attempts, the system entered a 30-second lockout period, during which the red LED blinked. Once the lockout expired, however, the LED continued blinking — even though the system had returned to its locked state.
 
-This post describes how I investigated the problem using GDB and Serial Wire Output (SWO), identified the root cause, and verified the fix on the target hardware.
+I wanted to understand why, rather than simply patching the code. Although AI could have helped me find the problem, I decided to use the opportunity to practise debugging on real hardware.
 
-## 1. Reproducing the Bug
+## Investigating with GDB and SWO
 
-The expected behaviour was straightforward:
+I approached the problem systematically, checking whether the fault originated in the timing mechanism, the state machine, or the hardware output logic.
 
-1. Enter an incorrect PIN three times.
-2. The system enters the lockout state, and the red LED starts blinking.
-3. After 30 seconds, the system returns to the locked state and the red LED stops blinking.
-4. Entering a valid PIN unlocks the system, and the green LED turns on.
+**First, I used GDB to inspect the timing and state transitions.**
 
-However, the actual behaviour differed. After the lockout period, the red LED continued blinking. When I entered a valid PIN, the green LED briefly turned on, but the red LED started blinking again.
+I verified that the millisecond counter advanced correctly and that the lockout start timestamp was set as expected. I then placed a watchpoint on the state variable to observe when the controller changed states.
 
-This suggested that the timeout and the LED output might not be behaving consistently.
+The state transitions were correct. The controller left the lockout state when the timeout expired, and the expected LED methods were called.
 
-## 2. Investigating the Problem
+**Next, I used SWO tracing to investigate keypad interrupt handling.**
 
-I wanted to determine whether the problem originated in the timekeeping, the state machine, or the hardware output logic.
+The trace output showed that keypad events were being detected. This helped me rule out the input handling as the source of the problem.
 
-### Checking the timekeeping
+By combining these observations, I narrowed the investigation down to the LED output adapter.
 
-The lockout timeout relies on a millisecond counter incremented by the SysTick interrupt handler.
+## Finding the Bug
 
-Using GDB, I checked the counter and the timestamp recorded when the lockout started. Both behaved as expected: the counter advanced, and the lockout start time was set correctly.
+The problem was not in the state machine or the timer.
 
-This made a problem in the basic timekeeping mechanism less likely.
+The LED adapter maintained a `blinking_` flag to control the blinking behavior. When blinking was activated, the flag was set — but it was not cleared when the system left the lockout state.
 
-### Inspecting state transitions
+Consequently, the adapter continued blinking the red LED even after the controller had returned to normal operation.
 
-Next, I used GDB to inspect the access controller's state transitions. I set a watchpoint on the state variable to observe when its value changed.
+The fix was simple: reset the flag when leaving the blinking state.
 
-The observations confirmed that the controller transitioned out of the lockout state as expected. I also verified that the corresponding LED methods were called at the expected points.
+## Verification
 
-The application logic appeared to be working correctly. I therefore shifted my attention to the LED output adapter.
+After implementing the fix, I tested the behavior on the actual STM32 hardware. The red LED stopped blinking after the lockout expired, and entering a valid PIN produced the expected green LED indication.
 
-### Using SWO to investigate keypad input
+The unit tests passed, and the project’s GitHub Actions CI pipeline completed successfully.
 
-I also used Serial Wire Output (SWO) tracing to inspect keypad input handling. The trace confirmed that key presses were detected by the interrupt handlers.
+## What I Learned
 
-Together, the GDB observations and SWO trace helped me narrow down the investigation. The timeout, state transitions, and keypad input did not explain why the red LED resumed blinking.
+This investigation reinforced an important lesson: **correct state transitions do not necessarily mean that the hardware output reflects the current state correctly.**
 
-## 3. Finding the Root Cause
+It also gave me practical experience combining GDB and SWO to investigate a problem on a microcontroller. GDB helped me inspect program state and trace transitions, while SWO provided runtime information about interrupt handling.
 
-The problem was in the LED output adapter.
+For me, the most valuable part was not the complexity of the bug itself, but learning to use these tools to move from an observed symptom to a verified root cause.
 
-The `BlinkRed()` method enabled blinking by setting a persistent flag named `blinking_`. The adapter's update logic used this flag to determine whether the red LED should continue blinking.
-
-However, the flag was not reset when the controller left the lockout state.
-
-As a result, the application could transition to the unlocked state and turn on the green LED, but the LED adapter still considered blinking to be active. A subsequent update restored the red blinking behaviour.
-
-The important distinction was that the access controller's state was correct, while the LED adapter retained outdated information about the desired output behaviour.
-
-## 4. Implementing the Fix
-
-I corrected the LED output adapter so that the persistent blinking flag is reset when leaving the blinking state.
-
-This ensures that the blinking logic no longer remains active after the lockout period has ended.
-
-The fix addressed the root cause rather than changing the timeout or the state machine, both of which had behaved as expected during the investigation.
-
-## 5. Verifying the Fix
-
-After implementing the change, I repeated the lockout test on the STM32F407 hardware.
-
-The results matched the expected behaviour:
-
-- After three incorrect PIN attempts, the red LED blinked during the lockout.
-- After 30 seconds, the red LED stopped blinking.
-- Entering a valid PIN produced the expected green LED behaviour.
-
-I also ran the unit tests and verified that the GitHub Actions continuous integration workflow passed.
-
-These checks confirmed that the fix worked on the target hardware and that the existing automated tests remained successful.
-
-## 6. What I Learned
-
-This investigation reinforced the importance of checking assumptions at each layer of an embedded system.
-
-Initially, the persistent blinking appeared to be related to the lockout timeout. By inspecting the millisecond counter, state transitions, and LED method calls, I was able to narrow the problem down to the output adapter.
-
-I also gained practical experience using GDB watchpoints and SWO tracing to investigate the behaviour of firmware running on real hardware.
-
-One important lesson was that correct application state does not necessarily guarantee correct hardware output. Persistent flags and other internal state in peripheral adapters must also be kept consistent with the application's state transitions.
-
-## Conclusion
-
-This bug was caused by a blinking flag that remained set after the lockout state ended. The fix was small, but finding it required tracing the behaviour across several parts of the system.
-
-The investigation gave me practical experience with embedded debugging, from checking interrupt-driven timekeeping to inspecting state transitions and isolating a problem in the hardware output layer.
-
-**Project:** [STM32F407 Access Control System](https://github.com/koenigr/stm32f407_access_control)
+It was a small bug, but a useful step forward in my embedded development journey.
