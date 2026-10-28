@@ -1,10 +1,21 @@
 ---
-layout: home
+layout: default
 title: Home
 ---
 
-Welcome to **From Code to Hardware**.
+# From Code to Hardware
 
-I document my work and learning in embedded software, bare-metal development, debugging, and hardware-software integration.
+Practical notes on embedded software, bare-metal development, debugging, and hardware-software integration.
 
-Here you'll find practical experiments, technical explanations, and lessons learned while developing embedded systems.
+## Blog Posts
+
+<ul>
+{% for post in site.posts %}
+  <li>
+    <a href="{{ post.url | relative_url }}">{{ post.title }}</a>
+    <small> — {{ post.date | date: "%d %B %Y" }}</small>
+  </li>
+{% else %}
+  <li>No posts published yet.</li>
+{% endfor %}
+</ul>
