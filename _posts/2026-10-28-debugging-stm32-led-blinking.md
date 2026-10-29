@@ -5,8 +5,6 @@ date: 2026-10-28
 categories: [embedded, debugging]
 ---
 
-# Debugging an STM32: My First Hands-On Experience with GDB and SWO
-
 ## From Symptoms to Root Cause
 
 While developing a bare-metal access control system for the STM32F407G-DISC1, I encountered a bug that seemed straightforward at first.
@@ -14,6 +12,8 @@ While developing a bare-metal access control system for the STM32F407G-DISC1, I 
 After three incorrect PIN attempts, the system entered a 30-second lockout period, during which the red LED blinked. Once the lockout expired, however, the LED continued blinking — even though the system had returned to its locked state.
 
 I wanted to understand why, rather than simply patching the code. Although AI could have helped me find the problem, I decided to use the opportunity to practise debugging on real hardware.
+
+![Debugging process: From symptom to root cause]({{ '/assets/images/investigation_steps.png' | relative_url }})
 
 ## Investigating with GDB and SWO
 
@@ -46,6 +46,9 @@ The fix was simple: reset the flag when leaving the blinking state.
 After implementing the fix, I tested the behavior on the actual STM32 hardware. The red LED stopped blinking after the lockout expired, and entering a valid PIN produced the expected green LED indication.
 
 The unit tests passed, and the project’s GitHub Actions CI pipeline completed successfully.
+
+For the complete investigation, see the
+[STM32 debugging protocol](https://github.com/koenigr/stm32f407_access_control/blob/main/Docs/Debugging/debugging-protocol.md).
 
 ## What I Learned
 
