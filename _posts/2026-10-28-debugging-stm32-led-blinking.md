@@ -50,7 +50,7 @@ After implementing the fix, I tested the behavior on the actual STM32 hardware. 
 The unit tests passed, and the project’s GitHub Actions CI pipeline completed successfully.
 
 For the complete investigation, see the
-[STM32 debugging protocol](https://github.com/koenigr/stm32f407_access_control/blob/main/Docs/Debugging/debugging-protocol.md).
+[STM32 debugging protocol](https://github.com/koenigr/stm32f407-register-level-access-control/blob/main/Docs/Debugging/state-transition-hardware-debugging.md).
 
 ## What I Learned
 
