@@ -1,78 +1,58 @@
 ---
 layout: post
-title: "Debugging a Persistent LED Blinking Bug on the STM32F407"
+title: "Debugging an STM32: My First Hands-On Experience with GDB and SWO"
 date: 2026-10-28
 categories: [embedded, debugging]
 ---
 
-# Debugging a Persistent LED Blinking Bug on the STM32F407
+# Debugging an STM32: My First Hands-On Experience with GDB and SWO
 
-## 1. Introduction
-**Purpose:** Briefly introduce the project and the problem.
+## From Symptoms to Root Cause
 
-- What is the STM32 access control system?
-- What should happen after three incorrect PIN attempts?
-- What unexpected behaviour did you observe?
+While developing a bare-metal access control system for the STM32F407G-DISC1, I encountered a bug that seemed straightforward at first.
 
-## 2. Reproducing the Bug
-**Purpose:** Describe the problem so that another developer could reproduce it.
+After three incorrect PIN attempts, the system entered a 30-second lockout period, during which the red LED blinked. Once the lockout expired, however, the LED continued blinking — even though the system had returned to its locked state.
 
-- What steps trigger the bug?
-- What should happen after the 30-second lockout?
-- What actually happens?
-- Why is this behaviour incorrect?
+I wanted to understand why, rather than simply patching the code. Although AI could have helped me find the problem, I decided to use the opportunity to practise debugging on real hardware.
 
-## 3. Investigating the Problem
-**Purpose:** Explain how you approached the investigation.
+## Investigating with GDB and SWO
 
-### 3.1 Checking the Timekeeping
-- How did you check whether SysTick was working correctly?
-- What did you observe about the millisecond counter?
+I approached the problem systematically, checking whether the fault originated in the timing mechanism, the state machine, or the hardware output logic.
 
-### 3.2 Inspecting the State Machine
-- How did you use GDB to inspect state transitions?
-- What did you learn about the lockout logic?
+**First, I used GDB to inspect the timing and state transitions.**
 
-### 3.3 Tracing the Hardware Output
-- How did you use SWO tracing and GDB to investigate the LED behaviour?
-- Which part of the system did you investigate next, and why?
+I verified that the millisecond counter advanced correctly and that the lockout start timestamp was set as expected. I then placed a watchpoint on the state variable to observe when the controller changed states.
 
-## 4. Finding the Root Cause
-**Purpose:** Explain the actual cause, not just the visible symptom.
+The state transitions were correct. The controller left the lockout state when the timeout expired, and the expected LED methods were called.
 
-- Which variable caused the problem?
-- Why did the blinking continue after the lockout ended?
-- Why did entering a valid PIN briefly turn on the green LED before the red LED resumed blinking?
+**Next, I used SWO tracing to investigate keypad interrupt handling.**
 
-Include a screenshot of the relevant original code.
+The trace output showed that keypad events were being detected. This helped me rule out the input handling as the source of the problem.
 
-## 5. Implementing the Fix
-**Purpose:** Explain what you changed and why it solves the problem.
+By combining these observations, I narrowed the investigation down to the LED output adapter.
 
-- When should the `blinking_` flag be reset?
-- How does the change prevent the unexpected behaviour?
-- Link to the commit containing the fix.
+## Finding the Bug
 
-Include a screenshot of the corrected code if it helps illustrate the change.
+The problem was not in the state machine or the timer.
 
-## 6. Verifying the Fix
-**Purpose:** Demonstrate that the fix works.
+The LED adapter maintained a `blinking_` flag to control the blinking behavior. When blinking was activated, the flag was set — but it was not cleared when the system left the lockout state.
 
-- How did you test the fix on the actual STM32 hardware?
-- What happened after the 30-second timeout?
-- What happened when you entered a valid PIN?
-- Did the unit tests pass?
-- Did GitHub Actions complete successfully?
+Consequently, the adapter continued blinking the red LED even after the controller had returned to normal operation.
 
-## 7. What I Learned
-**Purpose:** Reflect on the debugging process.
+The fix was simple: reset the flag when leaving the blinking state.
 
-- What did you learn about debugging embedded systems?
-- What did you learn about using GDB, watchpoints, or SWO?
-- Did anything surprise you?
-- What would you do differently next time?
+## Verification
 
-## 8. Conclusion
-Briefly summarise the bug, the root cause, and the fix.
+After implementing the fix, I tested the behavior on the actual STM32 hardware. The red LED stopped blinking after the lockout expired, and entering a valid PIN produced the expected green LED indication.
 
-End with a link to the STM32 project repository and, optionally, the detailed debugging protocol.
+The unit tests passed, and the project’s GitHub Actions CI pipeline completed successfully.
+
+## What I Learned
+
+This investigation reinforced an important lesson: **correct state transitions do not necessarily mean that the hardware output reflects the current state correctly.**
+
+It also gave me practical experience combining GDB and SWO to investigate a problem on a microcontroller. GDB helped me inspect program state and trace transitions, while SWO provided runtime information about interrupt handling.
+
+For me, the most valuable part was not the complexity of the bug itself, but learning to use these tools to move from an observed symptom to a verified root cause.
+
+It was a small bug, but a useful step forward in my embedded development journey.
