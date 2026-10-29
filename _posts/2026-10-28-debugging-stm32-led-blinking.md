@@ -13,7 +13,7 @@ After three incorrect PIN attempts, the system entered a 30-second lockout perio
 
 I wanted to understand why, rather than simply patching the code. Although AI could have helped me find the problem, I decided to use the opportunity to practise debugging on real hardware.
 
-![Debugging process: From symptom to root cause]({{ '/assets/images/investigation_steps.png' | relative_url }})
+![Debugging process: From symptom to root cause]({{ '../assets/images/investigation_steps.png' | relative_url }})
 
 ## Investigating with GDB and SWO
 
